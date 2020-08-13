@@ -27,6 +27,8 @@ class App extends Component {
         this.handleChangeUserName = this.handleChangeUserName.bind(this);
         this.handleMainVideoStream = this.handleMainVideoStream.bind(this);
         this.onbeforeunload = this.onbeforeunload.bind(this);
+        this.startRecording = this.startRecording.bind(this);
+        this.stopRecording = this.stopRecording.bind(this);
     }
 
     componentDidMount() {
@@ -178,12 +180,65 @@ class App extends Component {
         });
     }
 
+    startRecording() {
+        console.log('========\n', `this.state.session`, this.state, '\n========');
+        console.log('========\n', `this.OV`, this.OV, '\n========');
+        return new Promise((resolve, reject) => {
+            var data = JSON.stringify({ session: this.state.mySessionId });
+            axios
+                .post(OPENVIDU_SERVER_URL + '/api/recordings/start', data, {
+                    headers: {
+                        Authorization: 'Basic ' + btoa('OPENVIDUAPP:' + OPENVIDU_SERVER_SECRET),
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then((response) => {
+                    console.log('recordings start', response);
+                    this.setState({
+                        recording: response
+                    })
+                    resolve(response);
+                })
+                .catch((error) => {
+                    console.log('========\n', `error`, error, '\n========');
+                    // return reject(error)
+                });
+        });
+    }
+
+    stopRecording() {
+        const recordingId = this.state.recording && this.state.recording.data && this.state.recording.data.id
+        
+        if (!recordingId) {
+            return;
+        }
+        return new Promise((resolve, reject) => {
+            axios
+                .post(OPENVIDU_SERVER_URL + `/api/recordings/stop/${this.state.recording.data.id}`, {}, {
+                    headers: {
+                        Authorization: 'Basic ' + btoa('OPENVIDUAPP:' + OPENVIDU_SERVER_SECRET),
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then((response) => {
+                    console.log('recordings stop', response);
+                    resolve(response);
+                })
+                .catch((error) => {
+                    console.log('========\n', `error`, error, '\n========');
+                    // return reject(error)
+                });
+        });
+    }
+
     render() {
         const mySessionId = this.state.mySessionId;
         const myUserName = this.state.myUserName;
 
         return (
             <div className="container">
+                <button onClick={this.startRecording}>start recording</button>
+                <button onClick={this.stopRecording}>stop recording</button>
                 {this.state.session === undefined ? (
                     <div id="join">
                         <div id="img-div">
@@ -277,7 +332,11 @@ class App extends Component {
 
     createSession(sessionId) {
         return new Promise((resolve, reject) => {
-            var data = JSON.stringify({ customSessionId: sessionId });
+            var data = JSON.stringify({ 
+                customSessionId: sessionId, 
+                defaultOutputMode: 'INDIVIDUAL',
+                recordingMode: "MANUAL",
+            });
             axios
                 .post(OPENVIDU_SERVER_URL + '/api/sessions', data, {
                     headers: {
